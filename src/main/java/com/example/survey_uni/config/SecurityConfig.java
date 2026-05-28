@@ -46,7 +46,9 @@ public class SecurityConfig {
                     // Chỉ ADMIN mới được quản lý tài khoản
                     .requestMatchers("/api/users/**").hasAnyRole("ADMIN")
                     // Cấp quyền truy cập endpoint khảo sát cho sinh viên
-                    .requestMatchers("/api/v1/surveys/**").hasRole("STUDENT")
+                    .requestMatchers("/api/v1/surveys/**", "/api/surveys/**").hasRole("STUDENT")
+                    // Chỉ cho phép ROLE_ADMIN hoặc ROLE_TRAINING_DEPARTMENT truy cập
+                    .requestMatchers("/api/v1/admin/**", "/api/admin/**").hasAnyRole("ADMIN", "TRAINING_DEPARTMENT")
                     // Các request khác phải đăng nhập
                     .anyRequest().authenticated() // các API khác thì yêu cầu đăng nhập
                 )

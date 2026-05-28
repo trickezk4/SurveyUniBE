@@ -30,4 +30,15 @@ public interface SurveyRepository extends JpaRepository<Survey, Integer> {
             "LEFT JOIN survey_tokens tk ON s.survey_id = tk.survey_id AND tk.student_id = e.student_id " +
             "WHERE e.student_id = :studentId", nativeQuery = true)
     List<Object[]> getSurveyStatusDashboard(@Param("studentId") Integer studentId);
+
+    // Tìm khảo sát theo ID Lớp học phần (Không phân biệt active hay không)
+    Optional<Survey> findByCourseOfferingId(Integer coId);
+
+    // Lấy tất cả khảo sát kèm thông tin môn, lớp, giảng viên (Tránh N+1 query)
+    @Query("SELECT s FROM Survey s " +
+            "JOIN FETCH s.courseOffering co " +
+            "JOIN FETCH co.course c " +
+            "JOIN FETCH co.lecturer l " +
+            "ORDER BY s.createdAt DESC")
+    List<Survey> findAllSurveysWithDetails();
 }

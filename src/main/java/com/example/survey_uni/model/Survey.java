@@ -18,6 +18,7 @@ public class Survey {
     @JoinColumn(name = "co_id", nullable = false)
     private CourseOffering courseOffering;
 
+    @Column(name = "title", length = 255)
     private String title;
 
     @Column(name = "is_active")
@@ -32,7 +33,8 @@ public class Survey {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "survey")
+    // set cascade -> tự động truyền data từ cha xuống con (questions); orphanRemoval -> xóa thẳng data thay vì set null foreign key
+    @OneToMany(mappedBy = "survey", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SurveyQuestion> questions;
 
     @OneToMany(mappedBy = "survey")

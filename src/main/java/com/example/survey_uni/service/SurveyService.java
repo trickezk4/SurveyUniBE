@@ -1,7 +1,12 @@
 package com.example.survey_uni.service;
 
+import com.example.survey_uni.dto.request.QuestionCreateRequest;
+import com.example.survey_uni.dto.request.QuestionUpdateRequest;
+import com.example.survey_uni.dto.request.SurveyCreateRequest;
 import com.example.survey_uni.dto.request.SurveySubmitRequest;
+import com.example.survey_uni.dto.response.SurveyDetailAdminResponse;
 import com.example.survey_uni.dto.response.SurveyDetailResponse;
+import com.example.survey_uni.dto.response.SurveyListResponse;
 import com.example.survey_uni.dto.response.SurveyStatusResponse;
 import com.example.survey_uni.model.*;
 import com.example.survey_uni.repository.*;
@@ -30,6 +35,8 @@ public class SurveyService {
     private SurveyAnswerRepository surveyAnswerRepository;
     @Autowired
     private UserRepository userRepository; // Sử dụng để map thực thể User khi tạo Token
+    @Autowired
+    private CourseOfferingRepository courseOfferingRepository; // Sử dụng để map thực thể User khi tạo Token
 
 //    public SurveyService(SurveyRepository surveyRepository, SurveyQuestionRepository surveyQuestionRepository, SurveyTokenRepository surveyTokenRepository, SurveySubmissionRepository surveySubmissionRepository, SurveyAnswerRepository surveyAnswerRepository, UserRepository userRepository) {
 //        this.surveyRepository = surveyRepository;
@@ -192,5 +199,198 @@ public class SurveyService {
         surveyToken.setDeletedAt(LocalDateTime.now()); // Đánh dấu soft-delete audit phiên
 
         surveyTokenRepository.save(surveyToken);
+    }
+
+    /**
+     * 4. [ADMIN] TẠO MỚI KHẢO SÁT VÀ CÂU HỎI CÙNG LÚC
+     */
+    @Transactional
+    public Integer createSurveyWithQuestions(SurveyCreateRequest request) {
+        // 1. Kiểm tra Lớp học phần có tồn tại không
+        CourseOffering courseOffering = courseOfferingRepository.findById(request.getCoId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy lớp học phần với ID: " + request.getCoId()));
+
+        // 2. Kiểm tra lớp này đã có khảo sát chưa
+        if (surveyRepository.findByCourseOfferingId(request.getCoId()).isPresent()) {
+            throw new RuntimeException("Lớp học phần này đã được thiết lập khảo sát trước đó.");
+        }
+
+        // 3. Ràng buộc logic thời gian
+        if (request.getStartDatetime().isAfter(request.getEndDatetime())) {
+            throw new RuntimeException("Thời gian bắt đầu không được lớn hơn thời gian kết thúc.");
+        }
+
+        // 4. Khởi tạo object Survey
+        Survey survey = new Survey();
+        survey.setCourseOffering(courseOffering);
+        survey.setTitle(request.getTitle());
+        survey.setStartDatetime(request.getStartDatetime());
+        survey.setEndDatetime(request.getEndDatetime());
+        survey.setActive(true); // Mặc định mở để tiện test
+        survey.setCreatedAt(LocalDateTime.now());
+
+        // 5. Duyệt và khởi tạo danh sách Câu hỏi
+        List<SurveyQuestion> questions = new ArrayList<>();
+        if (request.getQuestions() == null || request.getQuestions().isEmpty()) {
+            throw new RuntimeException("Khảo sát phải có ít nhất 1 câu hỏi.");
+        }
+
+        for (SurveyCreateRequest.QuestionRequest qReq : request.getQuestions()) {
+            SurveyQuestion question = new SurveyQuestion();
+            question.setSurvey(survey); // Gắn reference ngược lại Survey
+            question.setContent(qReq.getContent());
+            question.setType(qReq.getType());
+            question.setRequired(qReq.getIsRequired());
+            question.setOrderIndex(qReq.getOrderIndex());
+            questions.add(question);
+        }
+
+        // Gắn danh sách câu hỏi vào Survey.
+        // Nhờ cấu hình CascadeType.ALL ở Entity, khi save Survey nó sẽ tự động save toàn bộ Question.
+        survey.setQuestions(questions);
+
+        // 6. Lưu vào Database
+        Survey savedSurvey = surveyRepository.save(survey);
+        return savedSurvey.getId(); // Trả về ID để Controller phản hồi cho Client
+    }
+
+    /**
+     * 5. [ADMIN] LẤY DANH SÁCH TẤT CẢ KHẢO SÁT
+     */
+    public List<SurveyListResponse> getAllSurveys() {
+        List<Survey> surveys = surveyRepository.findAllSurveysWithDetails();
+
+        return surveys.stream().map(
+                s -> new SurveyListResponse(
+                        s.getId(),
+                        s.getTitle(),
+                        s.getCourseOffering().getCourse().getCourseCode(),
+                        s.getCourseOffering().getCourse().getCourseName(),
+                        s.getCourseOffering().getGroupCode(),
+                        s.getCourseOffering().getLecturer().getUsername(),
+                        s.getStartDatetime(), s.getEndDatetime(),
+                        s.getActive())
+                ).collect(Collectors.toList());
+    }
+
+    /**
+     * 6. [ADMIN] LẤY CHI TIẾT 1 CUỘC KHẢO SÁT THEO ID
+     */
+    public SurveyDetailAdminResponse getSurveyDetail(Integer id) {
+        Survey s = surveyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy cuộc khảo sát với ID: " + id));
+
+        // Map danh sách câu hỏi entity sang DTO con
+        List<SurveyDetailAdminResponse.QuestionResponse> questionResponses = s.getQuestions().stream()
+                .map(q -> new SurveyDetailAdminResponse.QuestionResponse(
+                        q.getId(),
+                        q.getContent(),
+                        q.getType(),
+                        q.getRequired(),
+                        q.getOrderIndex()
+                )).collect(Collectors.toList());
+
+        // Build Response tổng thể
+        return new SurveyDetailAdminResponse(
+                s.getId(),
+                s.getTitle(),
+                s.getCourseOffering().getCourse().getCourseCode(),
+                s.getCourseOffering().getCourse().getCourseName(),
+                s.getCourseOffering().getGroupCode(),
+                s.getCourseOffering().getLecturer().getUsername(),
+                s.getStartDatetime(),
+                s.getEndDatetime(),
+                s.getActive(),
+                questionResponses
+        );
+    }
+
+    /**
+     * 7. [ADMIN] THAY ĐỔI TRẠNG THÁI ĐÓNG/MỜ KHẢO SÁT THỦ CÔNG
+     */
+    @Transactional
+    public void updateSurveyStatus(Integer id, Boolean isActive) {
+        // 1. Kiểm tra cuộc khảo sát có tồn tại không
+        Survey survey = surveyRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy cuộc khảo sát với ID: " + id));
+
+        // 2. Cập nhật trạng thái mới
+        survey.setActive(isActive);
+
+        // 3. Lưu lại vào DB
+        surveyRepository.save(survey);
+    }
+
+    /**
+     * 8. [ADMIN] CHỈNH SỬA MỘT CÂU HỎI KHẢO SÁT
+     */
+    @Transactional
+    public void updateQuestion(Integer questionId, QuestionUpdateRequest request) {
+        // 1. Tìm câu hỏi
+        SurveyQuestion question = surveyQuestionRepository.findById(questionId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy câu hỏi với ID: " + questionId));
+
+        // 2. Kiểm tra nghiệp vụ => Khảo sát chỉ được sửa khi chưa có ai làm bài
+        Survey survey = question.getSurvey();
+        if (survey.getSubmissions() != null && !survey.getSubmissions().isEmpty()) {
+            throw new RuntimeException("Không thể chỉnh sửa câu hỏi vì cuộc khảo sát này đã có sinh viên nộp bài.");
+        }
+
+        // 3. Cập nhật thông tin khảo sát mới
+        question.setContent(request.getContent());
+        question.setType(request.getType());
+        question.setRequired(request.getRequired());
+        question.setOrderIndex(request.getOrderIndex());
+
+        // 4. Lưu lại
+        surveyQuestionRepository.save(question);
+    }
+
+    /**
+     * 9. [ADMIN] XÓA MỘT CÂU HỎI KHẢO SÁT
+     */
+    @Transactional
+    public void deleteQuestion(Integer questionId) {
+        // 1. Tìm câu hỏi
+        SurveyQuestion question = surveyQuestionRepository.findById(questionId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy câu hỏi với ID: " + questionId));
+
+        // 2. Kiểm tra nghiệp vụ tương tự như sửa
+        Survey survey = question.getSurvey();
+        if (survey.getSubmissions() != null && !survey.getSubmissions().isEmpty()) {
+            throw new RuntimeException("Không thể xóa câu hỏi vì cuộc khảo sát này đã có sinh viên nộp bài.");
+        }
+
+        // 3. Gỡ bỏ liên kết trong mảng của đối tượng Cha (Survey) để Hibernate đồng bộ bộ nhớ cache
+        survey.getQuestions().remove(question);
+
+        // 4. Thực hiện xóa dưới DB
+        surveyQuestionRepository.delete(question);
+    }
+
+    /**
+     * 10. [ADMIN] THÊM CÂU HỎI MỚI VÀO CUỘC KHẢO SÁT ĐÃ TỒN TẠI
+     */
+    @Transactional
+    public void addQuestionToSurvey(Integer surveyId, QuestionCreateRequest request) {
+        // 1. Tìm cuộc khảo sát xem có tồn tại không
+        Survey survey = surveyRepository.findById(surveyId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy cuộc khảo sát với ID: " + surveyId));
+
+        // 2. Kiểm tra nghiệp vụ tương tự như sửa
+        if (survey.getSubmissions() != null && !survey.getSubmissions().isEmpty()) {
+            throw new RuntimeException("Không thể thêm câu hỏi vì cuộc khảo sát này đã có sinh viên nộp bài.");
+        }
+
+        // 3. Khởi tạo đối tượng câu hỏi mới và thiết lập mối quan hệ
+        SurveyQuestion newQuestion = new SurveyQuestion();
+        newQuestion.setSurvey(survey); // Gắn câu hỏi vào khảo sát cha
+        newQuestion.setContent(request.getContent());
+        newQuestion.setType(request.getType());
+        newQuestion.setRequired(request.getRequired());
+        newQuestion.setOrderIndex(request.getOrderIndex());
+
+        // 4. Lưu xuống bảng survey_questions
+        surveyQuestionRepository.save(newQuestion);
     }
 }

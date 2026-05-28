@@ -1,5 +1,7 @@
 package com.example.survey_uni.dto.request;
 
+import com.example.survey_uni.model.SurveyQuestion;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -71,14 +73,14 @@ public class SurveyCreateRequest {
     public static class QuestionRequest {
 
         private String content;
-        private String type; // SCALE hoặc TEXT (Enum trong DB)
+        private SurveyQuestion.QuestionType type; // SCALE hoặc TEXT (Enum trong DB)
         private Boolean isRequired;
         private Integer orderIndex;
 
 
         public QuestionRequest(
                 String content,
-                String type,
+                SurveyQuestion.QuestionType type,
                 Boolean isRequired,
                 Integer orderIndex
         ) {
@@ -97,11 +99,11 @@ public class SurveyCreateRequest {
             this.content = content;
         }
 
-        public String getType() {
+        public SurveyQuestion.QuestionType getType() {
             return type;
         }
 
-        public void setType(String type) {
+        public void setType(SurveyQuestion.QuestionType type) {
             this.type = type;
         }
 
