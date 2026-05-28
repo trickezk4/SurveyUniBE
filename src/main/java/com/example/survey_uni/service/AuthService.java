@@ -67,11 +67,11 @@ public class AuthService {
             Optional<User> user = userRepository.findByEmail(email);
 
             if (passwordEncoder.matches(rawPassword, user.get().getPassword())) {
-                return new LoginResponse("Đăng nhập thành công!", jwtUtil.generateToken(user.get()));
+                return new LoginResponse("Đăng nhập thành công!", jwtUtil.generateToken(user.get()), user.get().getRole().toString());
             }
-            return new LoginResponse("Đăng nhập thất bại", "");
+            return new LoginResponse("Đăng nhập thất bại", "", "");
         } catch (UsernameNotFoundException e){
-            return new LoginResponse("Không tìm thấy tài khoản", "");
+            return new LoginResponse("Không tìm thấy tài khoản", "", "");
         }
     }
 }
