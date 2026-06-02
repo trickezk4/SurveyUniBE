@@ -23,6 +23,7 @@ public class Course {
     @Column(name = "course_description", columnDefinition = "TEXT")
     private String courseDescription;
 
+    @Column(name = "credits", nullable = false)
     private Integer credits;
 
     @Column(name = "created_at")

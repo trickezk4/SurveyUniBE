@@ -63,6 +63,7 @@ public class SurveyService {
             dto.setLecturerName((String) row[3]);
             dto.setSurveyId((Integer) row[4]);
             dto.setSurveyStatus((String) row[5]);
+            dto.setCredits((Integer) row[6]);
             responseList.add(dto);
         }
         return responseList;

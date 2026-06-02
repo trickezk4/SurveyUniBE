@@ -20,7 +20,7 @@ public interface SurveyRepository extends JpaRepository<Survey, Integer> {
             "  WHEN sub.submission_id IS NOT NULL THEN 'HOAN_THANH' " +
             "  WHEN tk.stoken_id IS NOT NULL AND tk.is_submitted = false THEN 'DANG_THUC_HIEN' " +
             "  ELSE 'CHUA_BAT_DAU' " +
-            "END as surveyStatus " +
+            "END as surveyStatus, c.credits as credits " +
             "FROM enrollments e " +
             "JOIN course_offering co ON e.co_id = co.co_id " +
             "JOIN course c ON co.course_id = c.course_id " +

@@ -8,6 +8,7 @@ public class SurveyStatusResponse {
     private String lecturerName;
     private Integer surveyId;       // Có thể null nếu lớp chưa mở khảo sát
     private String surveyStatus;    // CHUA_BAT_DAU, DANG_THUC_HIEN, HOAN_THANH
+    private Integer credits;
 
     public SurveyStatusResponse() {
 
@@ -60,5 +61,13 @@ public class SurveyStatusResponse {
 
     public void setSurveyStatus(String surveyStatus) {
         this.surveyStatus = surveyStatus;
+    }
+
+    public Integer getCredits() {
+        return credits;
+    }
+
+    public void setCredits(Integer credits) {
+        this.credits = credits;
     }
 }

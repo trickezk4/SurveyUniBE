@@ -26,12 +26,8 @@ public class SurveyController {
 
     @Autowired
     private UserRepository userRepository;
-    /**
-     * LƯU Ý QUAN TRỌNG VỀ JWT:
-     * Hàm helper này dùng để lấy studentId từ đối tượng Authentication của Spring Security.
-     * Bạn hãy điều chỉnh đoạn ép kiểu (Cast) dưới đây cho khớp với Object Principal
-     * mà bạn đã lưu vào SecurityContext tại lớp `JwtFilter` của bạn.
-     */
+
+    // Hàm helper này dùng để lấy studentId từ đối tượng Authentication của Spring Security.
     private Integer getAuthenticatedStudentId(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new RuntimeException("Người dùng chưa được xác thực.");
